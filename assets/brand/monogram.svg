@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 180 180" role="img" aria-label="Mario Viscovo">
+  <defs><linearGradient id="g" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#7b9a82"/><stop offset=".55" stop-color="#b65d3f"/><stop offset="1" stop-color="#d6b16a"/></linearGradient></defs>
+  <rect width="180" height="180" rx="56" fill="#f4eee3"/>
+  <circle cx="90" cy="90" r="63" fill="none" stroke="url(#g)" stroke-width="5"/>
+  <path d="M47 111V62h11l31 33 31-33h11v49h-12V82l-30 31-30-31v29H47Z" fill="#25231f"/>
+  <path d="M62 127h56" stroke="#b65d3f" stroke-width="5" stroke-linecap="round"/>
+</svg>
