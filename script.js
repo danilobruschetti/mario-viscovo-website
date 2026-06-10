@@ -114,10 +114,38 @@ if (techShell) {
 }
 
 const detailButtons = $$('[data-expand]');
+const detailOrigins = new WeakMap();
+
+function rememberDetailOrigin(detail) {
+  if (!detail || detailOrigins.has(detail)) return;
+  detailOrigins.set(detail, {
+    parent: detail.parentNode,
+    next: detail.nextSibling,
+  });
+}
+
+function restoreDetailOrigin(detail) {
+  const origin = detailOrigins.get(detail);
+  if (!detail || !origin?.parent || detail.parentNode === origin.parent) return;
+  origin.parent.insertBefore(detail, origin.next);
+}
+
+function ensureDetailCloseButton(detail) {
+  if (!detail || detail.querySelector('.detail-close')) return;
+  const close = document.createElement('button');
+  close.type = 'button';
+  close.className = 'detail-close';
+  close.setAttribute('aria-label', 'Chiudi approfondimento');
+  close.textContent = 'Chiudi';
+  close.addEventListener('click', closeOpenDetails);
+  detail.prepend(close);
+}
+
 function closeOpenDetails() {
   detailButtons.forEach((button) => {
     const detail = document.getElementById(button.dataset.expand);
     detail?.classList.remove('is-open');
+    if (detail) restoreDetailOrigin(detail);
     button.classList.remove('is-open');
     button.setAttribute('aria-expanded', 'false');
     button.textContent = 'Approfondisci';
@@ -126,12 +154,18 @@ function closeOpenDetails() {
 }
 detailButtons.forEach((button) => {
   button.setAttribute('aria-expanded', 'false');
+  const detail = document.getElementById(button.dataset.expand);
+  rememberDetailOrigin(detail);
+  ensureDetailCloseButton(detail);
   button.addEventListener('click', () => {
     const detail = document.getElementById(button.dataset.expand);
     if (!detail) return;
     const willOpen = !detail.classList.contains('is-open');
     closeOpenDetails();
     if (willOpen) {
+      rememberDetailOrigin(detail);
+      ensureDetailCloseButton(detail);
+      document.body.appendChild(detail);
       detail.classList.add('is-open');
       button.classList.add('is-open');
       button.setAttribute('aria-expanded', 'true');
