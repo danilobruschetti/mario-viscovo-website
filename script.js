@@ -273,13 +273,14 @@ if (faqSection) {
 const blogContainer = $('[data-blog-posts]');
 const blogHome = 'https://marioviscovomtc.substack.com';
 const blogArchive = `${blogHome}/archive`;
+const blogFeed = `${blogHome}/feed`;
 const blogArchiveApi = `${blogHome}/api/v1/archive?sort=new&limit=3`;
-const blogCacheKey = 'mario-viscovo-blog-cache-v1';
+const blogCacheKey = 'mario-viscovo-blog-cache-v2';
 let blogRetryTimer = null;
 let blogAttempt = 0;
 
 function safeBlogText(value = '') {
-  return String(value).replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
+  return String(value).replace(/[&<>\"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char]));
 }
 
 function renderBlogPosts(posts, { cached = false } = {}) {
@@ -297,7 +298,7 @@ function renderBlogPosts(posts, { cached = false } = {}) {
   blogContainer.innerHTML = validPosts.map((post) => {
     const link = post.link && post.link !== blogHome ? post.link : blogArchive;
     return `<article>
-      ${post.date ? `<small>${safeBlogText(post.date)}</small>` : cached ? '<small>Ultimi articoli</small>' : ''}
+      ${post.date ? `<small>${safeBlogText(post.date)}</small>` : cached ? '<small>Ultimi articoli salvati</small>' : ''}
       <strong>${safeBlogText(post.title)}</strong>
       ${post.description ? `<p>${safeBlogText(post.description)}</p>` : ''}
       <a href="${safeBlogText(link)}" target="_blank" rel="noopener">Leggi l’articolo</a>
@@ -307,9 +308,10 @@ function renderBlogPosts(posts, { cached = false } = {}) {
 
 function renderBlogLoading() {
   if (!blogContainer || blogContainer.getAttribute('data-blog-loaded') === 'true') return;
+  const attemptText = blogAttempt > 0 ? ` Tentativo ${blogAttempt + 1} in corso.` : '';
   blogContainer.innerHTML = `<article class="blog-state blog-state-loading">
     <strong>Sto caricando gli ultimi articoli.</strong>
-    <p>Il feed può richiedere qualche secondo al primo accesso: la pagina riprova automaticamente senza mostrare contenuti segnaposto.</p>
+    <p>Il feed esterno può essere lento al primo accesso.${attemptText} La pagina continua a riprovare in automatico, senza mostrare contenuti segnaposto.</p>
     <a href="${blogArchive}" target="_blank" rel="noopener">Apri il blog</a>
   </article>`;
 }
@@ -350,7 +352,7 @@ function formatDate(value) {
   return date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
 }
 
-async function fetchWithTimeout(url, options = {}, timeout = 8500) {
+async function fetchWithTimeout(url, options = {}, timeout = 14000) {
   const controller = new AbortController();
   const timer = window.setTimeout(() => controller.abort(), timeout);
   try {
@@ -360,7 +362,7 @@ async function fetchWithTimeout(url, options = {}, timeout = 8500) {
       cache: 'no-store',
       headers: { Accept: 'application/json, application/xml, text/xml, text/plain, */*', ...(options.headers || {}) }
     });
-    if (!response.ok) throw new Error('Risposta non disponibile');
+    if (!response.ok) throw new Error(`Risposta non disponibile: ${response.status}`);
     return response;
   } finally {
     window.clearTimeout(timer);
@@ -369,26 +371,53 @@ async function fetchWithTimeout(url, options = {}, timeout = 8500) {
 
 function normalizeBlogLink(value = '') {
   try {
-    return new URL(value, blogHome).toString();
+    const normalized = new URL(value, blogHome).toString();
+    return normalized.includes('substack.com') ? normalized : blogArchive;
   } catch (error) {
     return blogArchive;
   }
 }
 
-function proxyUrl(url) {
-  return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+function mapBlogPost(post = {}) {
+  return {
+    title: stripHtml(post.title || post.name || ''),
+    description: stripHtml(post.subtitle || post.description || post.content || post.preview || '').slice(0, 165),
+    date: formatDate(post.post_date || post.pubDate || post.published_at || post.created_at || post.published),
+    link: normalizeBlogLink(post.link || post.canonical_url || post.url || post.guid || post.slug || blogArchive)
+  };
 }
 
-async function fetchArchivePosts(url = blogArchiveApi) {
-  const response = await fetchWithTimeout(url, {}, 8500);
+function normalizePosts(posts = []) {
+  return posts.map(mapBlogPost)
+    .filter((post) => post.title && post.link && post.link !== blogHome)
+    .slice(0, 3);
+}
+
+function rss2JsonUrl(feedUrl) {
+  const cacheBuster = Math.floor(Date.now() / 600000);
+  return `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=3&_=${cacheBuster}`;
+}
+
+async function fetchViaRss2Json(feedUrl = blogFeed) {
+  const response = await fetchWithTimeout(rss2JsonUrl(feedUrl), {}, 16000);
   const data = await response.json();
+  if (data.status && data.status !== 'ok') throw new Error('RSS non disponibile');
+  return normalizePosts(data.items || []);
+}
+
+async function fetchTextViaAllOrigins(url) {
+  const endpoint = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}&_=${Date.now()}`;
+  const response = await fetchWithTimeout(endpoint, {}, 16000);
+  const data = await response.json();
+  if (!data || !data.contents) throw new Error('Proxy non disponibile');
+  return data.contents;
+}
+
+async function fetchArchiveViaAllOrigins() {
+  const contents = await fetchTextViaAllOrigins(blogArchiveApi);
+  const data = JSON.parse(contents);
   const posts = Array.isArray(data) ? data : (data.posts || data.items || []);
-  return posts.map((post) => ({
-    title: stripHtml(post.title || post.name || ''),
-    description: stripHtml(post.subtitle || post.description || post.preview || '').slice(0, 165),
-    date: formatDate(post.post_date || post.published_at || post.created_at),
-    link: normalizeBlogLink(post.canonical_url || post.url || post.slug || blogArchive)
-  })).filter((post) => post.title && post.link && post.link !== blogHome).slice(0, 3);
+  return normalizePosts(posts);
 }
 
 function firstText(node, selectors) {
@@ -406,30 +435,34 @@ function linkFromFeedItem(item) {
   return normalizeBlogLink(href || direct || blogArchive);
 }
 
-async function fetchFeed(feedUrl) {
-  const response = await fetchWithTimeout(feedUrl, {}, 8500);
-  const xmlText = await response.text();
+function parseFeedXml(xmlText) {
   const xml = new DOMParser().parseFromString(xmlText, 'application/xml');
   if (xml.querySelector('parsererror')) throw new Error('Feed non leggibile');
   return Array.from(xml.querySelectorAll('item, entry')).slice(0, 3).map((item) => ({
-    title: stripHtml(firstText(item, ['title']) || 'Articolo'),
+    title: firstText(item, ['title']) || 'Articolo',
     link: linkFromFeedItem(item),
-    description: stripHtml(firstText(item, ['description', 'summary', 'content\\:encoded', 'encoded', 'content'])).slice(0, 165),
-    date: formatDate(firstText(item, ['pubDate', 'published', 'updated']))
-  })).filter((item) => item.title && item.link && item.link !== blogHome).slice(0, 3);
+    description: firstText(item, ['description', 'summary', 'content\\:encoded', 'encoded', 'content']),
+    pubDate: firstText(item, ['pubDate', 'published', 'updated'])
+  })).map(mapBlogPost).filter((item) => item.title && item.link && item.link !== blogHome).slice(0, 3);
+}
+
+async function fetchFeedViaAllOrigins(feedUrl = blogFeed) {
+  const contents = await fetchTextViaAllOrigins(feedUrl);
+  return parseFeedXml(contents);
 }
 
 async function loadBlogFeed() {
   if (!blogContainer) return false;
-  const feed = `${blogHome}/feed`;
   const openRssFeed = 'https://openrss.org/marioviscovomtc.substack.com';
+
+  // Non chiamo direttamente Substack dal browser: il dominio blocca CORS.
+  // Uso sorgenti CORS-friendly e continuo a riprovare finché una risponde.
   const sources = [
-    () => fetchArchivePosts(),
-    () => fetchFeed(feed),
-    () => fetchFeed(openRssFeed),
-    () => fetchFeed(proxyUrl(feed)),
-    () => fetchFeed(proxyUrl(openRssFeed)),
-    () => fetchArchivePosts(proxyUrl(blogArchiveApi))
+    () => fetchViaRss2Json(blogFeed),
+    () => fetchViaRss2Json(openRssFeed),
+    () => fetchFeedViaAllOrigins(blogFeed),
+    () => fetchFeedViaAllOrigins(openRssFeed),
+    () => fetchArchiveViaAllOrigins()
   ];
 
   for (const source of sources) {
@@ -438,6 +471,7 @@ async function loadBlogFeed() {
       if (items.length) {
         cacheBlogPosts(items);
         renderBlogPosts(items);
+        blogAttempt = 0;
         return true;
       }
     } catch (error) {
@@ -455,7 +489,7 @@ async function retryBlogUntilLoaded() {
   const loaded = await loadBlogFeed();
   if (loaded) return;
   blogAttempt += 1;
-  const nextDelay = Math.min(30000, 3500 + blogAttempt * 2500);
+  const nextDelay = Math.min(45000, 4500 + blogAttempt * 3500);
   blogRetryTimer = window.setTimeout(retryBlogUntilLoaded, nextDelay);
 }
 
@@ -466,9 +500,9 @@ if (blogContainer) {
 
   const startBlogLoad = () => retryBlogUntilLoaded();
   if ('requestIdleCallback' in window) {
-    window.requestIdleCallback(startBlogLoad, { timeout: 1200 });
+    window.requestIdleCallback(startBlogLoad, { timeout: 1600 });
   } else {
-    window.setTimeout(startBlogLoad, 450);
+    window.setTimeout(startBlogLoad, 650);
   }
 }
 

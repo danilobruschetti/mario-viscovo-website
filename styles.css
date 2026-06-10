@@ -3596,3 +3596,27 @@ body.detail-modal-open .mobile-bar{
     padding-right: 14px;
   }
 }
+
+/* V7 - microfix mobile FAQ: evita il taglio del label "Cerca nella FAQ" */
+@media (max-width: 760px) {
+  .faq-toolbar {
+    padding-inline: 2px;
+    overflow: visible;
+  }
+  .faq-search {
+    padding-left: 12px;
+    margin-left: -2px;
+    box-sizing: border-box;
+    overflow: visible;
+  }
+  .faq-search span {
+    padding-left: 2px;
+    text-indent: 0;
+  }
+}
+
+@media (max-width: 420px) {
+  .faq-search {
+    padding-left: 14px;
+  }
+}
