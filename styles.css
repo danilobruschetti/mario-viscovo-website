@@ -3620,3 +3620,54 @@ body.detail-modal-open .mobile-bar{
     padding-left: 14px;
   }
 }
+
+/* V8 - microfix immagini e modale mobile */
+.hero-portrait::after,
+.about-photo::after{
+  display:none !important;
+  content:none !important;
+}
+
+.inline-detail::after{
+  background:var(--sage-dark) !important;
+  color:#fff !important;
+  border-color:rgba(255,255,255,.58) !important;
+  box-shadow:0 10px 26px rgba(31,35,30,.18) !important;
+  font-weight:800;
+}
+
+@media (max-width:660px){
+  .inline-detail{
+    left:50% !important;
+    top:50dvh !important;
+    width:min(calc(100vw - 28px), 560px) !important;
+    max-height:min(70dvh, 560px) !important;
+    padding:28px 21px 26px !important;
+    border-radius:24px !important;
+    transform:translate3d(-50%,-50%,0) scale(1) !important;
+    transition:opacity .18s ease, visibility .18s ease !important;
+    overscroll-behavior:contain;
+    -webkit-overflow-scrolling:touch;
+  }
+  .inline-detail.is-open{
+    transform:translate3d(-50%,-50%,0) scale(1) !important;
+  }
+  .inline-detail::before{
+    padding-right:46px;
+    margin-bottom:14px !important;
+  }
+  .inline-detail::after{
+    right:12px !important;
+    top:12px !important;
+    width:42px !important;
+    height:42px !important;
+    font-size:1.45rem !important;
+    background:var(--sage-dark) !important;
+    color:#fff !important;
+    border:1px solid rgba(255,255,255,.7) !important;
+    box-shadow:0 12px 28px rgba(31,35,30,.22) !important;
+  }
+  body.detail-modal-open::after{
+    background:rgba(52,58,52,.12) !important;
+  }
+}
