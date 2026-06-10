@@ -3744,3 +3744,24 @@ body.detail-modal-open::after{
     background:rgba(52,58,52,.18) !important;
   }
 }
+/* HERO MOBILE */
+@media (max-width: 768px) {
+
+  .hero-portrait figcaption {
+    position: static;
+    display: block;
+    width: auto;
+    max-width: none;
+
+    margin: 0;
+    padding: 1rem 1.25rem;
+
+    border-radius: 0 0 1.5rem 1.5rem;
+
+    transform: none;
+    left: auto;
+    right: auto;
+    bottom: auto;
+  }
+
+}
