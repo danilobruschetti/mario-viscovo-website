@@ -3470,3 +3470,129 @@ body.detail-modal-open .site-header{
     min-height:var(--path-panel-min-height, 400px) !important;
   }
 }
+
+/* Delta pro v5: fix WhatsApp mobile, blog fallback reale, modale tecniche più leggibile, form nascosta */
+.contact-form-full{
+  display:none !important;
+}
+
+.inline-toggle.is-open{
+  min-width:auto !important;
+}
+
+.inline-detail{
+  top:50% !important;
+  transform:translate(-50%,-50%) scale(1) !important;
+  transition:opacity .20s ease, visibility .20s ease !important;
+  background:
+    radial-gradient(circle at 94% 8%, rgba(151,166,149,.14), transparent 32%),
+    radial-gradient(circle at 4% 100%, rgba(181,138,112,.08), transparent 36%),
+    linear-gradient(145deg, rgba(255,254,249,.995), rgba(248,243,235,.992)) !important;
+  box-shadow:0 24px 72px rgba(36,42,37,.17), 0 0 0 1px rgba(255,255,255,.82) inset !important;
+  color:#342f29 !important;
+}
+
+.inline-detail.is-open{
+  transform:translate(-50%,-50%) scale(1) !important;
+}
+
+.inline-detail p{
+  color:#3f3932 !important;
+  font-size:1.01rem !important;
+  line-height:1.72 !important;
+}
+
+body.detail-modal-open::after{
+  background:rgba(52,58,52,.12) !important;
+  backdrop-filter:none !important;
+  -webkit-backdrop-filter:none !important;
+}
+
+body.detail-modal-open .hero,
+body.detail-modal-open main,
+body.detail-modal-open .site-header,
+body.detail-modal-open .mobile-bar{
+  filter:none !important;
+}
+
+.blog-state-direct{
+  background:linear-gradient(145deg,#fffdf8,#f8efe3) !important;
+  border-style:dashed !important;
+}
+
+.blog-state-direct strong{
+  color:#342f29;
+}
+
+.blog-state-direct a{
+  margin-top:12px !important;
+}
+
+.blog-posts article{
+  transition:transform .22s ease, box-shadow .22s ease, border-color .22s ease, background .22s ease !important;
+}
+
+.blog-posts article:hover{
+  border-color:rgba(70,92,82,.28) !important;
+}
+
+@media (max-width:660px){
+  .inline-detail{
+    top:50% !important;
+    width:calc(100vw - 22px) !important;
+    max-height:72vh !important;
+    padding:24px 20px 26px !important;
+  }
+  body.detail-modal-open::after{
+    background:rgba(52,58,52,.16) !important;
+  }
+}
+
+
+/* v6 - Blog più paziente + microfix FAQ mobile */
+.blog-state-loading {
+  position: relative;
+  overflow: hidden;
+}
+.blog-state-loading::after {
+  content: "";
+  position: absolute;
+  inset: auto 18px 14px 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg, rgba(76,89,74,.14), rgba(76,89,74,.38), rgba(76,89,74,.14));
+  background-size: 180% 100%;
+  animation: blogLoadingSweep 1.8s ease-in-out infinite;
+}
+@keyframes blogLoadingSweep {
+  0% { background-position: 0 0; opacity: .55; }
+  50% { opacity: 1; }
+  100% { background-position: 180% 0; opacity: .55; }
+}
+@media (max-width: 760px) {
+  .faq-workspace,
+  .faq-toolbar,
+  .faq-search {
+    min-width: 0;
+    overflow: visible;
+  }
+  .faq-search {
+    padding-left: 3px;
+  }
+  .faq-search span {
+    display: block;
+    padding-left: 2px;
+    letter-spacing: .055em;
+    font-size: .72rem;
+  }
+}
+@media (max-width: 420px) {
+  .faq-shell {
+    width: min(calc(100% - 26px), var(--container));
+    padding: 20px;
+  }
+  .faq-search input {
+    padding-left: 14px;
+    padding-right: 14px;
+  }
+}

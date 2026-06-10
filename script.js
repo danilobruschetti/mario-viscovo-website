@@ -272,224 +272,205 @@ if (faqSection) {
 
 const blogContainer = $('[data-blog-posts]');
 const blogHome = 'https://marioviscovomtc.substack.com';
+const blogArchive = `${blogHome}/archive`;
 const blogArchiveApi = `${blogHome}/api/v1/archive?sort=new&limit=3`;
-const fallbackPosts = [
-  ['Mario Viscovo', 'Riflessioni, analisi sindromiche, pratica clinica e ponti tra Medicina Cinese e psicologia.', `${blogHome}/archive`],
-  ['Medicina Cinese e pratica', 'Appunti su corpo, energia, cultura cinese e lavoro con la persona.', `${blogHome}/archive`],
-  ['Corpo, simbolo e relazione', 'Una traccia di lettura per seguire gli aggiornamenti pubblicati da Mario Viscovo.', `${blogHome}/archive`]
-];
+const blogCacheKey = 'mario-viscovo-blog-cache-v1';
+let blogRetryTimer = null;
+let blogAttempt = 0;
 
-function renderBlogPosts(posts) {
+function safeBlogText(value = '') {
+  return String(value).replace(/[&<>"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[char]));
+}
+
+function renderBlogPosts(posts, { cached = false } = {}) {
   if (!blogContainer) return;
-  blogContainer.innerHTML = posts.slice(0, 3).map((post) => {
-    const link = post.link && post.link !== blogHome ? post.link : `${blogHome}/archive`;
-    return `
-      <article>
-        <small>${post.date || 'Articolo'}</small>
-        <strong>${post.title}</strong>
-        <p>${post.description || 'Leggi l’articolo nello spazio editoriale di Mario Viscovo.'}</p>
-        <a href="${link}" target="_blank" rel="noopener">Leggi articolo</a>
-      </article>
-    `;
+  const validPosts = posts
+    .filter((post) => post && post.title && post.link)
+    .slice(0, 3);
+
+  if (!validPosts.length) {
+    renderBlogLoading();
+    return;
+  }
+
+  blogContainer.setAttribute('data-blog-loaded', 'true');
+  blogContainer.innerHTML = validPosts.map((post) => {
+    const link = post.link && post.link !== blogHome ? post.link : blogArchive;
+    return `<article>
+      ${post.date ? `<small>${safeBlogText(post.date)}</small>` : cached ? '<small>Ultimi articoli</small>' : ''}
+      <strong>${safeBlogText(post.title)}</strong>
+      ${post.description ? `<p>${safeBlogText(post.description)}</p>` : ''}
+      <a href="${safeBlogText(link)}" target="_blank" rel="noopener">Leggi l’articolo</a>
+    </article>`;
   }).join('');
 }
 
-function stripHtml(text = '') {
-  const parser = new DOMParser();
-  const decoded = parser.parseFromString(text, 'text/html').documentElement.textContent || '';
-  return decoded
-    .replace(/<[^>]*>/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
+function renderBlogLoading() {
+  if (!blogContainer || blogContainer.getAttribute('data-blog-loaded') === 'true') return;
+  blogContainer.innerHTML = `<article class="blog-state blog-state-loading">
+    <strong>Sto caricando gli ultimi articoli.</strong>
+    <p>Il feed può richiedere qualche secondo al primo accesso: la pagina riprova automaticamente senza mostrare contenuti segnaposto.</p>
+    <a href="${blogArchive}" target="_blank" rel="noopener">Apri il blog</a>
+  </article>`;
 }
 
-function firstText(item, selectors) {
+function readCachedBlogPosts() {
+  try {
+    const raw = window.localStorage?.getItem(blogCacheKey);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!parsed || !Array.isArray(parsed.posts)) return [];
+    return parsed.posts.filter((post) => post && post.title && post.link).slice(0, 3);
+  } catch (error) {
+    return [];
+  }
+}
+
+function cacheBlogPosts(posts) {
+  try {
+    const validPosts = posts.filter((post) => post && post.title && post.link).slice(0, 3);
+    if (validPosts.length) {
+      window.localStorage?.setItem(blogCacheKey, JSON.stringify({ savedAt: Date.now(), posts: validPosts }));
+    }
+  } catch (error) {
+    // Cache non essenziale: se non disponibile si procede normalmente.
+  }
+}
+
+function stripHtml(value = '') {
+  const div = document.createElement('div');
+  div.innerHTML = value;
+  return (div.textContent || div.innerText || '').replace(/\s+/g, ' ').trim();
+}
+
+function formatDate(value) {
+  if (!value) return '';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  return date.toLocaleDateString('it-IT', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+async function fetchWithTimeout(url, options = {}, timeout = 8500) {
+  const controller = new AbortController();
+  const timer = window.setTimeout(() => controller.abort(), timeout);
+  try {
+    const response = await fetch(url, {
+      ...options,
+      signal: controller.signal,
+      cache: 'no-store',
+      headers: { Accept: 'application/json, application/xml, text/xml, text/plain, */*', ...(options.headers || {}) }
+    });
+    if (!response.ok) throw new Error('Risposta non disponibile');
+    return response;
+  } finally {
+    window.clearTimeout(timer);
+  }
+}
+
+function normalizeBlogLink(value = '') {
+  try {
+    return new URL(value, blogHome).toString();
+  } catch (error) {
+    return blogArchive;
+  }
+}
+
+function proxyUrl(url) {
+  return `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`;
+}
+
+async function fetchArchivePosts(url = blogArchiveApi) {
+  const response = await fetchWithTimeout(url, {}, 8500);
+  const data = await response.json();
+  const posts = Array.isArray(data) ? data : (data.posts || data.items || []);
+  return posts.map((post) => ({
+    title: stripHtml(post.title || post.name || ''),
+    description: stripHtml(post.subtitle || post.description || post.preview || '').slice(0, 165),
+    date: formatDate(post.post_date || post.published_at || post.created_at),
+    link: normalizeBlogLink(post.canonical_url || post.url || post.slug || blogArchive)
+  })).filter((post) => post.title && post.link && post.link !== blogHome).slice(0, 3);
+}
+
+function firstText(node, selectors) {
   for (const selector of selectors) {
-    const value = item.querySelector(selector)?.textContent?.trim();
-    if (value) return value;
+    const found = node.querySelector(selector);
+    const text = found?.textContent?.trim();
+    if (text) return text;
   }
   return '';
 }
 
-function formatDate(value) {
-  if (!value) return 'Articolo';
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return 'Articolo';
-  return new Intl.DateTimeFormat('it-IT', { day: '2-digit', month: 'short', year: 'numeric' }).format(date);
-}
-
-function normalizeUrl(url) {
-  if (!url) return '';
-  const clean = String(url).trim().replace(/^<!\[CDATA\[/, '').replace(/\]\]>$/, '').replace(/&amp;/g, '&');
-  try {
-    return new URL(clean, blogHome).toString();
-  } catch (error) {
-    return '';
-  }
-}
-
-function isArticleUrl(url = '') {
-  return /^https?:\/\/[^\s]+\/p\/[^/?#]+/i.test(url)
-    || /^https?:\/\/substack\.com\/home\/post\/p-\d+/i.test(url)
-    || /^https?:\/\/[^\s]+\/post\/p-\d+/i.test(url);
-}
-
-function extractUrlsFromString(text = '') {
-  return Array.from(String(text).matchAll(/https?:\/\/[^"'<>\s)]+/g))
-    .map((match) => normalizeUrl(match[0]))
-    .filter(Boolean);
-}
-
-function collectCandidates(item) {
-  const raw = new XMLSerializer().serializeToString(item);
-  const urls = new Set();
-
-  item.querySelectorAll('link').forEach((link) => {
-    [link.getAttribute('href'), link.getAttribute('url'), link.textContent].forEach((value) => {
-      const url = normalizeUrl(value);
-      if (url) urls.add(url);
-    });
-  });
-
-  ['guid', 'id', 'canonical_url', 'web_url', 'post_url', 'url'].forEach((selector) => {
-    const url = normalizeUrl(firstText(item, [selector]));
-    if (url) urls.add(url);
-  });
-
-  extractUrlsFromString(raw).forEach((url) => urls.add(url));
-  return Array.from(urls).filter(Boolean);
-}
-
-function normalizePostLink(item) {
-  const candidates = collectCandidates(item);
-  const article = candidates.find(isArticleUrl);
-  if (article) return article;
-
-  const substackArticle = candidates.find((url) => url.startsWith(`${blogHome}/p/`));
-  if (substackArticle) return substackArticle;
-
-  const serialized = new XMLSerializer().serializeToString(item);
-  const numericId = serialized.match(/(?:post|p)[_-]?(?:id)?[^0-9]{0,20}(\d{5,})/i)?.[1];
-  if (numericId) return `https://substack.com/home/post/p-${numericId}`;
-
-  const nonGeneric = candidates.find((url) => {
-    const clean = url.replace(/\/$/, '');
-    return clean !== blogHome && clean !== `${blogHome}/archive` && !clean.includes('/subscribe');
-  });
-  return nonGeneric || `${blogHome}/archive`;
-}
-
-async function fetchText(url) {
-  const response = await fetch(url, { cache: 'no-store' });
-  if (!response.ok) throw new Error('Risorsa non disponibile');
-  return response.text();
-}
-
-async function fetchJsonWithFallback(url) {
-  const urls = [
-    url,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(url)}`
-  ];
-
-  let lastError;
-  for (const currentUrl of urls) {
-    try {
-      const text = await fetchText(currentUrl);
-      return JSON.parse(text);
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error('JSON non disponibile');
-}
-
-function normalizeArchivePost(post) {
-  const link = normalizeUrl(
-    post.canonical_url
-    || post.web_url
-    || post.post_url
-    || post.url
-    || post.path
-    || (post.slug ? `/p/${post.slug}` : '')
-  );
-
-  return {
-    title: stripHtml(post.title) || 'Articolo',
-    link: isArticleUrl(link) || link.startsWith(`${blogHome}/p/`) ? link : `${blogHome}/archive`,
-    description: stripHtml(post.subtitle || post.description || post.preview || post.search_engine_description || '').slice(0, 165),
-    date: formatDate(post.post_date || post.published_at || post.created_at || post.updated_at)
-  };
-}
-
-async function fetchArchivePosts() {
-  const data = await fetchJsonWithFallback(blogArchiveApi);
-  const posts = Array.isArray(data) ? data : (data.posts || data.items || []);
-  const normalized = posts
-    .map(normalizeArchivePost)
-    .filter((post) => post.title && post.link && post.link !== `${blogHome}/archive`)
-    .slice(0, 3);
-  if (!normalized.length) throw new Error('Archivio non leggibile');
-  return normalized;
+function linkFromFeedItem(item) {
+  const direct = item.querySelector('link')?.textContent?.trim();
+  const href = item.querySelector('link[href]')?.getAttribute('href');
+  return normalizeBlogLink(href || direct || blogArchive);
 }
 
 async function fetchFeed(feedUrl) {
-  const feedUrls = [
-    feedUrl,
-    `https://api.allorigins.win/raw?url=${encodeURIComponent(feedUrl)}`,
-    `https://api.codetabs.com/v1/proxy/?quest=${encodeURIComponent(feedUrl)}`
-  ];
-
-  let lastError;
-  for (const currentUrl of feedUrls) {
-    try {
-      const xmlText = await fetchText(currentUrl);
-      const xml = new DOMParser().parseFromString(xmlText, 'application/xml');
-      const parseError = xml.querySelector('parsererror');
-      if (parseError) throw new Error('Feed non leggibile');
-      const items = Array.from(xml.querySelectorAll('item, entry')).slice(0, 3).map((item) => ({
-        title: firstText(item, ['title']) || 'Articolo',
-        link: normalizePostLink(item),
-        description: stripHtml(firstText(item, ['description', 'summary', 'content\\:encoded', 'encoded', 'content'])).slice(0, 165),
-        date: formatDate(firstText(item, ['pubDate', 'published', 'updated']))
-      })).filter((item) => item.link && item.link !== blogHome);
-      if (!items.length) throw new Error('Feed vuoto');
-      return items;
-    } catch (error) {
-      lastError = error;
-    }
-  }
-  throw lastError || new Error('Feed non disponibile');
+  const response = await fetchWithTimeout(feedUrl, {}, 8500);
+  const xmlText = await response.text();
+  const xml = new DOMParser().parseFromString(xmlText, 'application/xml');
+  if (xml.querySelector('parsererror')) throw new Error('Feed non leggibile');
+  return Array.from(xml.querySelectorAll('item, entry')).slice(0, 3).map((item) => ({
+    title: stripHtml(firstText(item, ['title']) || 'Articolo'),
+    link: linkFromFeedItem(item),
+    description: stripHtml(firstText(item, ['description', 'summary', 'content\\:encoded', 'encoded', 'content'])).slice(0, 165),
+    date: formatDate(firstText(item, ['pubDate', 'published', 'updated']))
+  })).filter((item) => item.title && item.link && item.link !== blogHome).slice(0, 3);
 }
 
 async function loadBlogFeed() {
-  if (!blogContainer) return;
-  try {
-    const archiveItems = await fetchArchivePosts();
-    renderBlogPosts(archiveItems);
-    return;
-  } catch (error) {
-    // fallback RSS
-  }
-
-  const feeds = [
-    `${blogHome}/feed`,
-    `https://openrss.org/marioviscovomtc.substack.com`
+  if (!blogContainer) return false;
+  const feed = `${blogHome}/feed`;
+  const openRssFeed = 'https://openrss.org/marioviscovomtc.substack.com';
+  const sources = [
+    () => fetchArchivePosts(),
+    () => fetchFeed(feed),
+    () => fetchFeed(openRssFeed),
+    () => fetchFeed(proxyUrl(feed)),
+    () => fetchFeed(proxyUrl(openRssFeed)),
+    () => fetchArchivePosts(proxyUrl(blogArchiveApi))
   ];
 
-  for (const feed of feeds) {
+  for (const source of sources) {
     try {
-      const items = await fetchFeed(feed);
-      renderBlogPosts(items);
-      return;
+      const items = await source();
+      if (items.length) {
+        cacheBlogPosts(items);
+        renderBlogPosts(items);
+        return true;
+      }
     } catch (error) {
-      // passa al feed successivo
+      // Prova la sorgente successiva senza bloccare l'interfaccia.
     }
   }
 
-  renderBlogPosts(fallbackPosts.map(([title, description, link]) => ({ title, description, link, date: 'Articolo' })));
+  return false;
 }
-loadBlogFeed();
+
+async function retryBlogUntilLoaded() {
+  if (!blogContainer || blogContainer.getAttribute('data-blog-loaded') === 'true') return;
+  window.clearTimeout(blogRetryTimer);
+  renderBlogLoading();
+  const loaded = await loadBlogFeed();
+  if (loaded) return;
+  blogAttempt += 1;
+  const nextDelay = Math.min(30000, 3500 + blogAttempt * 2500);
+  blogRetryTimer = window.setTimeout(retryBlogUntilLoaded, nextDelay);
+}
+
+if (blogContainer) {
+  const cachedPosts = readCachedBlogPosts();
+  if (cachedPosts.length) renderBlogPosts(cachedPosts, { cached: true });
+  else renderBlogLoading();
+
+  const startBlogLoad = () => retryBlogUntilLoaded();
+  if ('requestIdleCallback' in window) {
+    window.requestIdleCallback(startBlogLoad, { timeout: 1200 });
+  } else {
+    window.setTimeout(startBlogLoad, 450);
+  }
+}
 
 // Delta: sfondo con movimento leggero su scroll + invio form Formspree senza cambio pagina
 const rootStyle = document.documentElement.style;
