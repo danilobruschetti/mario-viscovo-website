@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Gallery | Mario Viscovo</title>
+  <meta name="description" content="Gallery fotografica di Mario Viscovo: dettagli dello studio, luce, materiali e immagini del percorso.">
+  <meta name="theme-color" content="#fbf6ee">
+  <link rel="icon" href="assets/brand/favicon.png">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <a class="skip" href="#main">Vai al contenuto</a>
+  <div class="scrollbar" aria-hidden="true"></div>
+
+  <header class="site-header" data-header>
+    <div class="container header-grid">
+      <a class="brand" href="index.html#top" aria-label="Torna alla home">
+        <span class="brand-mark"><img src="assets/brand/logo-mario-square.webp" alt="Logo Mario Viscovo Tuina MTC"></span>
+        <span class="brand-text"><strong>Mario Viscovo</strong><em>Medicina Cinese · Roma</em></span>
+      </a>
+      <button class="nav-toggle" type="button" aria-label="Apri menu" aria-expanded="false" aria-controls="nav"><span></span><span></span></button>
+      <nav class="nav" id="nav" aria-label="Navigazione principale">
+        <a href="index.html#visione">Visione</a>
+        <a href="index.html#percorso">Percorso</a>
+        <a href="index.html#tecniche">Tecniche</a>
+        <a href="index.html#chi-sono">Chi sono</a>
+        <a class="is-current" href="gallery.html">Gallery</a>
+        <a href="index.html#blog">Blog e libri</a>
+        <a class="nav-action" href="index.html#contatti">Prenota</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="section gallery-page-hero">
+      <div class="container gallery-page-head reveal in-view">
+        <p class="eyebrow">Gallery</p>
+        <h1>Uno sguardo dentro.</h1>
+        <p>Dettagli, luce e presenza: immagini dello studio, dei materiali e dei momenti che accompagnano il percorso.</p>
+      </div>
+    </section>
+
+    <section class="section gallery-page-section">
+      <div class="container">
+        <div class="gallery-page-grid" data-gallery-grid aria-label="Gallery fotografica"></div>
+        <div class="gallery-empty" data-gallery-empty hidden>
+          <strong>Gallery pronta per le foto selezionate.</strong>
+          <p>Salva le immagini in <code>assets/gallery/</code> con nomi progressivi: <code>immagine-1.webp</code>, <code>immagine-2.webp</code>, ecc. Non serve aggiornare JSON.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container footer-grid">
+      <p>© <span data-year></span> Mario Viscovo · Medicina Cinese a Roma</p>
+      <a href="index.html#top">Torna alla home</a>
+    </div>
+  </footer>
+
+  <div class="mobile-bar" aria-label="Azioni rapide">
+    <a href="index.html#contatti">Prenota</a>
+    <a href="https://wa.me/393930028109?text=Ciao%20Mario%2C%20ti%20scrivo%20dal%20sito%20per%20avere%20informazioni." target="_blank" rel="noopener">WhatsApp</a>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>

@@ -32,6 +32,7 @@
         <a href="#percorso">Percorso</a>
         <a href="#tecniche">Tecniche</a>
         <a href="#chi-sono">Chi sono</a>
+        <a href="gallery.html">Gallery</a>
         <a href="#blog">Blog e libri</a>
         <a class="nav-action" href="#contatti">Prenota</a>
       </nav>
@@ -420,6 +421,18 @@
       </div>
     </section>
 
+    <section class="section section-gallery-teaser" data-gallery-preview-section hidden>
+      <div class="container gallery-teaser-card reveal">
+        <div class="gallery-teaser-copy">
+          <p class="eyebrow">Gallery</p>
+          <h2>Uno sguardo dentro.</h2>
+          <p>Dettagli, luce e presenza: immagini dello studio e del percorso.</p>
+        </div>
+        <div class="gallery-preview-rail" data-gallery-preview aria-label="Anteprima gallery"></div>
+        <a class="btn btn-soft gallery-teaser-link" href="gallery.html">Apri la gallery</a>
+      </div>
+    </section>
+
     <section class="section section-writings" id="blog">
       <div class="container writings-grid">
         <div class="writings-intro reveal">
@@ -438,8 +451,8 @@
             <h3>Mario Viscovo</h3>
             <a href="https://marioviscovomtc.substack.com" target="_blank" rel="noopener">Apri il blog</a>
           </div>
-          <div class="blog-posts" data-blog-posts>
-            <article><small>Aggiornamento dinamico</small><strong>Caricamento degli ultimi articoli…</strong><p>Se il browser blocca il feed, resta disponibile il link diretto al blog.</p></article>
+          <div class="blog-posts" data-blog-posts data-blog-src="content/blog.json">
+            <article><strong>Caricamento degli articoli…</strong><p>I contenuti vengono letti dal file locale del sito, senza dipendere dal feed esterno.</p></article>
           </div>
           <div class="blog-cta">
             <span>Aggiornamenti</span>

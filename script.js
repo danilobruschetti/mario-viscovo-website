@@ -136,7 +136,7 @@ function ensureDetailCloseButton(detail) {
   close.type = 'button';
   close.className = 'detail-close';
   close.setAttribute('aria-label', 'Chiudi approfondimento');
-  close.textContent = 'Chiudi';
+  close.textContent = 'Chiudi approfondimento';
   close.addEventListener('click', closeOpenDetails);
   detail.prepend(close);
 }
@@ -539,6 +539,112 @@ if (blogContainer) {
     window.setTimeout(startBlogLoad, 650);
   }
 }
+
+const galleryPreviewSection = $('[data-gallery-preview-section]');
+const galleryPreview = $('[data-gallery-preview]');
+const galleryGrid = $('[data-gallery-grid]');
+const galleryEmpty = $('[data-gallery-empty]');
+const galleryMaxImages = 12;
+const galleryBasePath = 'assets/gallery/';
+const galleryBaseName = 'immagine-';
+const galleryExtension = '.webp';
+
+function buildNumberedGalleryItems() {
+  return Array.from({ length: galleryMaxImages }, (_, index) => ({
+    src: `${galleryBasePath}${galleryBaseName}${index + 1}${galleryExtension}`,
+    alt: `Immagine gallery ${index + 1}`,
+    title: '',
+    caption: ''
+  }));
+}
+
+function galleryCard(item, index, compact = false) {
+  return `<button class="gallery-card${compact ? ' gallery-card--compact' : ''}" type="button" data-gallery-open="${index}">
+    <img src="${safeBlogText(item.src)}" alt="${safeBlogText(item.alt)}" loading="lazy">
+  </button>`;
+}
+
+function bindGalleryCards(container, items) {
+  if (!container) return;
+  const cards = $$('[data-gallery-open]', container);
+  let completed = 0;
+  let visible = 0;
+  const checkEmpty = () => {
+    if (container === galleryGrid && galleryEmpty) galleryEmpty.hidden = visible > 0 || completed < cards.length;
+    if (container === galleryPreview && galleryPreviewSection) galleryPreviewSection.hidden = visible === 0 && completed >= cards.length;
+  };
+
+  cards.forEach((card) => {
+    const img = card.querySelector('img');
+    const markLoaded = () => {
+      completed += 1;
+      visible += 1;
+      card.classList.add('is-loaded');
+      checkEmpty();
+    };
+    const markMissing = () => {
+      completed += 1;
+      card.remove();
+      checkEmpty();
+    };
+    img?.addEventListener('load', markLoaded, { once: true });
+    img?.addEventListener('error', markMissing, { once: true });
+    if (img?.complete) {
+      if (img.naturalWidth > 0) markLoaded();
+      else markMissing();
+    }
+    card.addEventListener('click', () => openGalleryLightbox(items, Number(card.dataset.galleryOpen)));
+  });
+  checkEmpty();
+}
+
+function openGalleryLightbox(items, index = 0) {
+  const item = items[index];
+  if (!item) return;
+  let lightbox = $('[data-gallery-lightbox]');
+  if (!lightbox) {
+    lightbox = document.createElement('div');
+    lightbox.className = 'gallery-lightbox';
+    lightbox.setAttribute('data-gallery-lightbox', '');
+    document.body.appendChild(lightbox);
+    lightbox.addEventListener('click', (event) => {
+      if (event.target === lightbox || event.target.closest('[data-gallery-close]')) {
+        lightbox.classList.remove('is-open');
+        document.body.classList.remove('gallery-lightbox-open');
+      }
+    });
+  }
+  lightbox.innerHTML = `<div class="gallery-lightbox__panel" role="dialog" aria-modal="true" aria-label="Immagine gallery">
+    <button class="gallery-lightbox__close" type="button" data-gallery-close>Chiudi</button>
+    <img src="${safeBlogText(item.src)}" alt="${safeBlogText(item.alt)}">
+  </div>`;
+  lightbox.classList.add('is-open');
+  document.body.classList.add('gallery-lightbox-open');
+}
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape') {
+    $('[data-gallery-lightbox]')?.classList.remove('is-open');
+    document.body.classList.remove('gallery-lightbox-open');
+  }
+});
+
+function loadGallery() {
+  if (!galleryPreview && !galleryGrid) return;
+  const items = buildNumberedGalleryItems();
+  if (galleryPreview && galleryPreviewSection) {
+    galleryPreviewSection.hidden = false;
+    const previewItems = items.slice(0, 6);
+    galleryPreview.innerHTML = previewItems.map((item, index) => galleryCard(item, index, true)).join('');
+    bindGalleryCards(galleryPreview, items);
+  }
+  if (galleryGrid) {
+    galleryGrid.innerHTML = items.map((item, index) => galleryCard(item, index)).join('');
+    bindGalleryCards(galleryGrid, items);
+  }
+}
+
+loadGallery();
 
 // Delta: sfondo con movimento leggero su scroll + invio form Formspree senza cambio pagina
 const rootStyle = document.documentElement.style;
