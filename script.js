@@ -704,6 +704,389 @@ if (contactForm && formStatus) {
   });
 }
 
+
+
+// Privacy/cookie consent + caricamento controllato dei servizi esterni
+const cookieConsentKey = 'mario-viscovo-cookie-consent-v1';
+const externalServiceLabel = 'Servizi esterni';
+
+function readCookieConsent() {
+  try {
+    const raw = window.localStorage?.getItem(cookieConsentKey);
+    return raw ? JSON.parse(raw) : null;
+  } catch (error) {
+    return null;
+  }
+}
+
+function writeCookieConsent(value) {
+  try {
+    window.localStorage?.setItem(cookieConsentKey, JSON.stringify({
+      necessary: true,
+      external: Boolean(value.external),
+      savedAt: new Date().toISOString()
+    }));
+  } catch (error) {
+    // Se localStorage non è disponibile, il consenso resta valido solo per la sessione corrente.
+  }
+}
+
+function hasExternalConsent() {
+  return readCookieConsent()?.external === true;
+}
+
+function hideCookieBanner() {
+  $('[data-cookie-banner]')?.remove();
+}
+
+function ensureCookieManageButton() {
+  if ($('[data-cookie-manage]')) return;
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'cookie-manage';
+  button.setAttribute('data-cookie-manage', '');
+  button.textContent = 'Cookie';
+  button.addEventListener('click', () => openCookiePanel());
+  document.body.appendChild(button);
+}
+
+function saveConsent(external) {
+  writeCookieConsent({ external });
+  hideCookieBanner();
+  closeCookiePanel();
+  ensureCookieManageButton();
+  applyConsentState();
+}
+
+function renderCookieBanner() {
+  if (readCookieConsent() || $('[data-cookie-banner]')) {
+    ensureCookieManageButton();
+    return;
+  }
+  const banner = document.createElement('aside');
+  banner.className = 'cookie-banner';
+  banner.setAttribute('data-cookie-banner', '');
+  banner.setAttribute('role', 'dialog');
+  banner.setAttribute('aria-label', 'Gestione cookie');
+  banner.innerHTML = `<div>
+    <strong>Cookie e servizi esterni</strong>
+    <p>Usiamo solo funzioni tecniche essenziali. Calendario Google e recensioni Google vengono caricati solo con consenso ai servizi esterni.</p>
+  </div>
+  <div class="cookie-actions">
+    <button type="button" data-cookie-necessary>Solo necessari</button>
+    <button type="button" data-cookie-custom>Personalizza</button>
+    <a href="cookie-policy.html">Cookie policy</a>
+    <button type="button" data-cookie-accept-all>Accetta servizi esterni</button>
+  </div>`;
+  banner.querySelector('[data-cookie-necessary]')?.addEventListener('click', () => saveConsent(false));
+  banner.querySelector('[data-cookie-accept-all]')?.addEventListener('click', () => saveConsent(true));
+  banner.querySelector('[data-cookie-custom]')?.addEventListener('click', () => openCookiePanel());
+  document.body.appendChild(banner);
+}
+
+function openCookiePanel() {
+  let panel = $('[data-cookie-panel]');
+  const current = readCookieConsent();
+  if (!panel) {
+    panel = document.createElement('div');
+    panel.className = 'cookie-panel';
+    panel.setAttribute('data-cookie-panel', '');
+    panel.setAttribute('role', 'dialog');
+    panel.setAttribute('aria-modal', 'true');
+    panel.setAttribute('aria-label', 'Preferenze cookie');
+    panel.innerHTML = `<div class="cookie-panel__box">
+      <h2>Preferenze cookie</h2>
+      <p>Puoi mantenere solo le funzioni necessarie oppure abilitare i servizi esterni integrati nel sito.</p>
+      <label class="cookie-option">
+        <input type="checkbox" checked disabled>
+        <span><strong>Necessari</strong><span>Preferenze tecniche del sito e gestione del consenso.</span></span>
+      </label>
+      <label class="cookie-option">
+        <input type="checkbox" data-cookie-external-option>
+        <span><strong>${externalServiceLabel}</strong><span>Google Calendar e recensioni Google Business, caricati solo dopo consenso.</span></span>
+      </label>
+      <div class="cookie-panel__actions">
+        <button type="button" data-cookie-close>Annulla</button>
+        <button type="button" data-cookie-save>Salva preferenze</button>
+        <button type="button" data-cookie-panel-all>Accetta tutto</button>
+      </div>
+    </div>`;
+    panel.addEventListener('click', (event) => {
+      if (event.target === panel) closeCookiePanel();
+    });
+    panel.querySelector('[data-cookie-close]')?.addEventListener('click', closeCookiePanel);
+    panel.querySelector('[data-cookie-save]')?.addEventListener('click', () => {
+      saveConsent(Boolean(panel.querySelector('[data-cookie-external-option]')?.checked));
+    });
+    panel.querySelector('[data-cookie-panel-all]')?.addEventListener('click', () => saveConsent(true));
+    document.body.appendChild(panel);
+  }
+  const input = panel.querySelector('[data-cookie-external-option]');
+  if (input) input.checked = current?.external === true;
+  panel.hidden = false;
+}
+
+function closeCookiePanel() {
+  const panel = $('[data-cookie-panel]');
+  if (panel) panel.hidden = true;
+}
+
+function applyConsentState() {
+  const allowed = hasExternalConsent();
+  $$('[data-consent-embed]').forEach((frame) => {
+    const key = frame.dataset.consentEmbed;
+    const placeholder = document.querySelector(`[data-consent-placeholder="${key}"]`);
+    if (allowed) {
+      const src = frame.dataset.src;
+      if (src && frame.getAttribute('src') !== src) frame.setAttribute('src', src);
+      frame.hidden = false;
+      if (placeholder) placeholder.hidden = true;
+    } else {
+      frame.removeAttribute('src');
+      frame.hidden = true;
+      if (placeholder) placeholder.hidden = false;
+    }
+  });
+  renderGoogleReviewsByConsent();
+}
+
+$$('[data-consent-accept-external]').forEach((button) => {
+  button.addEventListener('click', () => saveConsent(true));
+});
+
+const googleReviewsContainer = $('[data-google-reviews]');
+const googleReviewsSummary = $('[data-google-reviews-summary]');
+const googleReviewsLink = $('[data-google-reviews-link]');
+let googleReviewsLoaded = false;
+let googleReviewsLoading = false;
+let googleMapsScriptPromise = null;
+
+function reviewConfig() {
+  return {
+    googleMapsApiKey: '',
+    placeId: '',
+    placeQuery: 'Mario Viscovo Studio Olistico Osmosis Via Orvieto 1 Roma',
+    mapsUrl: 'https://www.google.com/maps/place/Mario+Viscovo/@41.8933747,12.4782593,12z/data=!4m6!3m5!1s0x132f6172174872e5:0xc4c1a8ea3c40064d!8m2!3d41.8863488!4d12.5175451!16s%2Fg%2F11q9s5jm7y?hl=it',
+    endpointUrl: '',
+    maxReviews: 5,
+    language: 'it',
+    region: 'IT',
+    ...(window.MARIO_REVIEW_CONFIG || {})
+  };
+}
+
+function escapeHtml(value = '') {
+  return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
+}
+
+function escapeAttr(value = '') {
+  return escapeHtml(value).replace(/`/g, '&#96;');
+}
+
+function renderReviewState(title, message, { withConsentButton = false } = {}) {
+  if (!googleReviewsContainer) return;
+  const cfg = reviewConfig();
+  googleReviewsContainer.innerHTML = `<article class="review-state">
+    <strong>${escapeHtml(title)}</strong>
+    <p>${escapeHtml(message)}</p>
+    <div class="review-state-actions">
+      ${withConsentButton ? '<button type="button" data-consent-accept-external>Abilita servizi esterni</button>' : ''}
+      <a href="${escapeAttr(cfg.mapsUrl)}" target="_blank" rel="noopener">Apri recensioni su Google</a>
+    </div>
+  </article>`;
+  googleReviewsContainer.querySelectorAll('[data-consent-accept-external]').forEach((button) => {
+    button.addEventListener('click', () => saveConsent(true));
+  });
+}
+
+function renderGoogleReviewsByConsent() {
+  if (!googleReviewsContainer) return;
+  if (!hasExternalConsent()) {
+    googleReviewsLoaded = false;
+    renderReviewState('Recensioni Google protette dal consenso.', 'Per mostrare testi aggiornati dalla scheda Google Business abilita i servizi esterni. In alternativa puoi aprire direttamente la scheda Google.', { withConsentButton: true });
+    return;
+  }
+  loadGoogleReviews();
+}
+
+function humanRating(value) {
+  const number = Number(value);
+  return Number.isFinite(number) ? number.toFixed(1).replace('.', ',') : '';
+}
+
+function reviewText(value) {
+  if (!value) return '';
+  if (typeof value === 'string') return value;
+  if (typeof value.text === 'string') return value.text;
+  if (typeof value.text === 'function') return value.text();
+  return '';
+}
+
+function normalizeReview(review = {}) {
+  const authorAttribution = review.authorAttribution || review.author_attribution || {};
+  const author = review.authorName || review.author_name || authorAttribution.displayName || authorAttribution.display_name || 'Recensione Google';
+  const text = reviewText(review.text) || reviewText(review.originalText) || review.original_text || '';
+  const rating = Number(review.rating || review.starRating || review.stars || 5);
+  const time = review.relativePublishTimeDescription || review.relative_time_description || review.timeDescription || review.publishTime || review.date || '';
+  const link = String(review.googleMapsURI || review.googleMapsUri || review.author_url || review.url || '');
+  return {
+    author: stripHtml(author).slice(0, 90),
+    text: stripHtml(text),
+    rating: Number.isFinite(rating) ? Math.max(1, Math.min(5, Math.round(rating))) : 5,
+    time: stripHtml(time).slice(0, 80),
+    link
+  };
+}
+
+function normalizeReviewPayload(payload = {}) {
+  const data = payload.result || payload.place || payload;
+  const reviews = Array.isArray(data.reviews) ? data.reviews.map(normalizeReview).filter((item) => item.text) : [];
+  return {
+    name: reviewText(data.displayName) || data.name || 'Mario Viscovo',
+    rating: data.rating,
+    count: data.userRatingCount || data.user_ratings_total || data.user_ratings_count || data.reviewCount || data.count,
+    mapsUrl: String(data.googleMapsURI || data.googleMapsUri || data.url || data.mapsUrl || reviewConfig().mapsUrl),
+    reviews
+  };
+}
+
+function renderGoogleReviews(payload) {
+  if (!googleReviewsContainer) return;
+  const cfg = reviewConfig();
+  const normalized = normalizeReviewPayload(payload);
+  const reviews = normalized.reviews.slice(0, Number(cfg.maxReviews) || 5);
+
+  if (normalized.mapsUrl && googleReviewsLink) googleReviewsLink.href = normalized.mapsUrl;
+  if (googleReviewsSummary) {
+    const rating = humanRating(normalized.rating);
+    const count = normalized.count ? ` · ${Number(normalized.count).toLocaleString('it-IT')} recensioni` : '';
+    googleReviewsSummary.textContent = rating ? `Google Business · ${rating}/5${count}` : 'Google Business';
+  }
+
+  if (!reviews.length) {
+    renderReviewState('Nessun testo recensione restituito da Google.', 'La scheda Google è collegata, ma la risposta non contiene testi visualizzabili in questo momento.');
+    return;
+  }
+
+  googleReviewsContainer.innerHTML = reviews.map((review) => `<article class="review-card">
+    <div class="review-stars" aria-label="Valutazione ${review.rating} su 5">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</div>
+    <blockquote>“${escapeHtml(review.text)}”</blockquote>
+    <footer>
+      <span><strong>${escapeHtml(review.author)}</strong>${review.time ? ` · ${escapeHtml(review.time)}` : ''}</span>
+      ${review.link ? `<a href="${escapeAttr(review.link)}" target="_blank" rel="noopener">Google</a>` : ''}
+    </footer>
+  </article>`).join('');
+  googleReviewsLoaded = true;
+}
+
+async function loadGoogleReviews() {
+  if (!googleReviewsContainer || googleReviewsLoaded || googleReviewsLoading) return;
+  const cfg = reviewConfig();
+  if (!cfg.endpointUrl && !cfg.googleMapsApiKey) {
+    renderReviewState('Recensioni disponibili sulla scheda Google.', 'Il collegamento automatico non è ancora attivo: per ora puoi aprire la scheda Google Business e leggere le recensioni aggiornate direttamente lì.');
+    return;
+  }
+
+  googleReviewsLoading = true;
+  renderReviewState('Caricamento recensioni Google…', 'Sto leggendo i testi dalla scheda Google Business.');
+  try {
+    const payload = cfg.endpointUrl ? await fetchReviewsFromEndpoint(cfg.endpointUrl) : await fetchReviewsFromGoogleMaps(cfg);
+    renderGoogleReviews(payload);
+  } catch (error) {
+    renderReviewState('Recensioni non disponibili in questo momento.', 'Il collegamento Google non ha risposto correttamente. Puoi comunque aprire la scheda Google Business.');
+  } finally {
+    googleReviewsLoading = false;
+  }
+}
+
+async function fetchReviewsFromEndpoint(endpointUrl) {
+  const response = await fetchWithTimeout(endpointUrl, { headers: { Accept: 'application/json' } }, 12000);
+  return response.json();
+}
+
+function loadGoogleMapsScript(apiKey) {
+  if (window.google?.maps?.importLibrary) return Promise.resolve();
+  if (googleMapsScriptPromise) return googleMapsScriptPromise;
+  googleMapsScriptPromise = new Promise((resolve, reject) => {
+    const callbackName = '__marioGoogleReviewsReady';
+    window[callbackName] = () => {
+      delete window[callbackName];
+      resolve();
+    };
+    const script = document.createElement('script');
+    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&libraries=places&language=it&region=IT&callback=${callbackName}`;
+    script.async = true;
+    script.defer = true;
+    script.onerror = () => reject(new Error('Google Maps non disponibile'));
+    document.head.appendChild(script);
+  });
+  return googleMapsScriptPromise;
+}
+
+async function fetchReviewsFromGoogleMaps(cfg) {
+  await loadGoogleMapsScript(cfg.googleMapsApiKey);
+  if (window.google?.maps?.importLibrary) {
+    try {
+      const { Place } = await google.maps.importLibrary('places');
+      let place = null;
+      const fields = ['displayName', 'formattedAddress', 'rating', 'userRatingCount', 'googleMapsURI', 'reviews'];
+      if (cfg.placeId) {
+        place = new Place({ id: cfg.placeId });
+        await place.fetchFields({ fields });
+      } else if (Place.searchByText) {
+        const result = await Place.searchByText({
+          textQuery: cfg.placeQuery,
+          fields: ['id', ...fields],
+          language: cfg.language || 'it',
+          region: cfg.region || 'IT'
+        });
+        place = result?.places?.[0];
+        if (place?.fetchFields) await place.fetchFields({ fields });
+      }
+      if (place) return normalizeReviewPayload(place);
+    } catch (error) {
+      // Fallback al PlacesService legacy dove disponibile.
+    }
+  }
+  return fetchReviewsFromLegacyPlaces(cfg);
+}
+
+function fetchReviewsFromLegacyPlaces(cfg) {
+  return new Promise((resolve, reject) => {
+    if (!window.google?.maps?.places?.PlacesService) {
+      reject(new Error('PlacesService non disponibile'));
+      return;
+    }
+    const holder = document.createElement('div');
+    holder.style.display = 'none';
+    document.body.appendChild(holder);
+    const service = new google.maps.places.PlacesService(holder);
+    const fields = ['name', 'rating', 'user_ratings_total', 'reviews', 'url'];
+    const resolveDetails = (placeId) => {
+      service.getDetails({ placeId, fields, language: cfg.language || 'it', region: cfg.region || 'IT' }, (place, status) => {
+        holder.remove();
+        if (status === google.maps.places.PlacesServiceStatus.OK && place) resolve(normalizeReviewPayload(place));
+        else reject(new Error(`Google Places status: ${status}`));
+      });
+    };
+    if (cfg.placeId) {
+      resolveDetails(cfg.placeId);
+      return;
+    }
+    service.findPlaceFromQuery({ query: cfg.placeQuery, fields: ['place_id'] }, (results, status) => {
+      if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]?.place_id) resolveDetails(results[0].place_id);
+      else {
+        holder.remove();
+        reject(new Error(`Google Find Place status: ${status}`));
+      }
+    });
+  });
+}
+
+renderCookieBanner();
+if (readCookieConsent()) ensureCookieManageButton();
+applyConsentState();
+
 // Delta finale: calendario inline per prenotazioni
 const calendarPanel = $('[data-calendar-panel]');
 const calendarFrame = $('[data-calendar-frame]');
@@ -717,10 +1100,14 @@ $$('[data-calendar-select]').forEach((button) => {
     $$('[data-calendar-select]').forEach((item) => item.classList.toggle('is-active', item === button));
     if (calendarLabel) calendarLabel.textContent = `Calendario · ${title}`;
     if (calendarOpen) calendarOpen.href = url;
-    if (calendarFrame && calendarFrame.src !== url) {
-      calendarFrame.src = url;
+    const fallback = $('[data-calendar-fallback]');
+    if (fallback) fallback.href = url;
+    if (calendarFrame) {
+      calendarFrame.dataset.src = url;
       calendarFrame.title = `Calendario prenotazioni ${title}`;
+      if (hasExternalConsent() && calendarFrame.getAttribute('src') !== url) calendarFrame.setAttribute('src', url);
     }
+    applyConsentState();
     calendarPanel?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
   });
 });
