@@ -198,7 +198,7 @@ if (faqSection) {
   const emptyState = $('[data-faq-empty]', faqSection);
   const counter = $('[data-faq-counter]', faqSection);
   const initialVisibleLimit = 6;
-  let activeFilter = 'all';
+  let activeFilter = 'prima-visita';
   let showAllFaqResults = false;
 
   const normalizeFaqText = (value = '') => String(value)
@@ -770,7 +770,7 @@ function renderCookieBanner() {
   banner.setAttribute('aria-label', 'Gestione cookie');
   banner.innerHTML = `<div>
     <strong>Cookie e servizi esterni</strong>
-    <p>Usiamo solo funzioni tecniche essenziali. Calendario Google e recensioni Google vengono caricati solo con consenso ai servizi esterni.</p>
+    <p>Usiamo solo funzioni tecniche essenziali. Il calendario integrato viene caricato solo con consenso ai servizi esterni.</p>
   </div>
   <div class="cookie-actions">
     <button type="button" data-cookie-necessary>Solo necessari</button>
@@ -803,7 +803,7 @@ function openCookiePanel() {
       </label>
       <label class="cookie-option">
         <input type="checkbox" data-cookie-external-option>
-        <span><strong>${externalServiceLabel}</strong><span>Google Calendar e recensioni Google Business, caricati solo dopo consenso.</span></span>
+        <span><strong>${externalServiceLabel}</strong><span>Calendario integrato, caricato solo dopo consenso.</span></span>
       </label>
       <div class="cookie-panel__actions">
         <button type="button" data-cookie-close>Annulla</button>
@@ -847,241 +847,11 @@ function applyConsentState() {
       if (placeholder) placeholder.hidden = false;
     }
   });
-  renderGoogleReviewsByConsent();
 }
 
 $$('[data-consent-accept-external]').forEach((button) => {
   button.addEventListener('click', () => saveConsent(true));
 });
-
-const googleReviewsContainer = $('[data-google-reviews]');
-const googleReviewsSummary = $('[data-google-reviews-summary]');
-const googleReviewsLink = $('[data-google-reviews-link]');
-let googleReviewsLoaded = false;
-let googleReviewsLoading = false;
-let googleMapsScriptPromise = null;
-
-function reviewConfig() {
-  return {
-    googleMapsApiKey: '',
-    placeId: '',
-    placeQuery: 'Mario Viscovo Studio Olistico Osmosis Via Orvieto 1 Roma',
-    mapsUrl: 'https://www.google.com/maps/place/Mario+Viscovo/@41.8933747,12.4782593,12z/data=!4m6!3m5!1s0x132f6172174872e5:0xc4c1a8ea3c40064d!8m2!3d41.8863488!4d12.5175451!16s%2Fg%2F11q9s5jm7y?hl=it',
-    endpointUrl: '',
-    maxReviews: 5,
-    language: 'it',
-    region: 'IT',
-    ...(window.MARIO_REVIEW_CONFIG || {})
-  };
-}
-
-function escapeHtml(value = '') {
-  return String(value).replace(/[&<>"']/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[char]));
-}
-
-function escapeAttr(value = '') {
-  return escapeHtml(value).replace(/`/g, '&#96;');
-}
-
-function renderReviewState(title, message, { withConsentButton = false } = {}) {
-  if (!googleReviewsContainer) return;
-  const cfg = reviewConfig();
-  googleReviewsContainer.innerHTML = `<article class="review-state">
-    <strong>${escapeHtml(title)}</strong>
-    <p>${escapeHtml(message)}</p>
-    <div class="review-state-actions">
-      ${withConsentButton ? '<button type="button" data-consent-accept-external>Abilita servizi esterni</button>' : ''}
-      <a href="${escapeAttr(cfg.mapsUrl)}" target="_blank" rel="noopener">Apri recensioni su Google</a>
-    </div>
-  </article>`;
-  googleReviewsContainer.querySelectorAll('[data-consent-accept-external]').forEach((button) => {
-    button.addEventListener('click', () => saveConsent(true));
-  });
-}
-
-function renderGoogleReviewsByConsent() {
-  if (!googleReviewsContainer) return;
-  if (!hasExternalConsent()) {
-    googleReviewsLoaded = false;
-    renderReviewState('Recensioni Google protette dal consenso.', 'Per mostrare testi aggiornati dalla scheda Google Business abilita i servizi esterni. In alternativa puoi aprire direttamente la scheda Google.', { withConsentButton: true });
-    return;
-  }
-  loadGoogleReviews();
-}
-
-function humanRating(value) {
-  const number = Number(value);
-  return Number.isFinite(number) ? number.toFixed(1).replace('.', ',') : '';
-}
-
-function reviewText(value) {
-  if (!value) return '';
-  if (typeof value === 'string') return value;
-  if (typeof value.text === 'string') return value.text;
-  if (typeof value.text === 'function') return value.text();
-  return '';
-}
-
-function normalizeReview(review = {}) {
-  const authorAttribution = review.authorAttribution || review.author_attribution || {};
-  const author = review.authorName || review.author_name || authorAttribution.displayName || authorAttribution.display_name || 'Recensione Google';
-  const text = reviewText(review.text) || reviewText(review.originalText) || review.original_text || '';
-  const rating = Number(review.rating || review.starRating || review.stars || 5);
-  const time = review.relativePublishTimeDescription || review.relative_time_description || review.timeDescription || review.publishTime || review.date || '';
-  const link = String(review.googleMapsURI || review.googleMapsUri || review.author_url || review.url || '');
-  return {
-    author: stripHtml(author).slice(0, 90),
-    text: stripHtml(text),
-    rating: Number.isFinite(rating) ? Math.max(1, Math.min(5, Math.round(rating))) : 5,
-    time: stripHtml(time).slice(0, 80),
-    link
-  };
-}
-
-function normalizeReviewPayload(payload = {}) {
-  const data = payload.result || payload.place || payload;
-  const reviews = Array.isArray(data.reviews) ? data.reviews.map(normalizeReview).filter((item) => item.text) : [];
-  return {
-    name: reviewText(data.displayName) || data.name || 'Mario Viscovo',
-    rating: data.rating,
-    count: data.userRatingCount || data.user_ratings_total || data.user_ratings_count || data.reviewCount || data.count,
-    mapsUrl: String(data.googleMapsURI || data.googleMapsUri || data.url || data.mapsUrl || reviewConfig().mapsUrl),
-    reviews
-  };
-}
-
-function renderGoogleReviews(payload) {
-  if (!googleReviewsContainer) return;
-  const cfg = reviewConfig();
-  const normalized = normalizeReviewPayload(payload);
-  const reviews = normalized.reviews.slice(0, Number(cfg.maxReviews) || 5);
-
-  if (normalized.mapsUrl && googleReviewsLink) googleReviewsLink.href = normalized.mapsUrl;
-  if (googleReviewsSummary) {
-    const rating = humanRating(normalized.rating);
-    const count = normalized.count ? ` · ${Number(normalized.count).toLocaleString('it-IT')} recensioni` : '';
-    googleReviewsSummary.textContent = rating ? `Google Business · ${rating}/5${count}` : 'Google Business';
-  }
-
-  if (!reviews.length) {
-    renderReviewState('Nessun testo recensione restituito da Google.', 'La scheda Google è collegata, ma la risposta non contiene testi visualizzabili in questo momento.');
-    return;
-  }
-
-  googleReviewsContainer.innerHTML = reviews.map((review) => `<article class="review-card">
-    <div class="review-stars" aria-label="Valutazione ${review.rating} su 5">${'★'.repeat(review.rating)}${'☆'.repeat(5 - review.rating)}</div>
-    <blockquote>“${escapeHtml(review.text)}”</blockquote>
-    <footer>
-      <span><strong>${escapeHtml(review.author)}</strong>${review.time ? ` · ${escapeHtml(review.time)}` : ''}</span>
-      ${review.link ? `<a href="${escapeAttr(review.link)}" target="_blank" rel="noopener">Google</a>` : ''}
-    </footer>
-  </article>`).join('');
-  googleReviewsLoaded = true;
-}
-
-async function loadGoogleReviews() {
-  if (!googleReviewsContainer || googleReviewsLoaded || googleReviewsLoading) return;
-  const cfg = reviewConfig();
-  if (!cfg.endpointUrl && !cfg.googleMapsApiKey) {
-    renderReviewState('Recensioni disponibili sulla scheda Google.', 'Il collegamento automatico non è ancora attivo: per ora puoi aprire la scheda Google Business e leggere le recensioni aggiornate direttamente lì.');
-    return;
-  }
-
-  googleReviewsLoading = true;
-  renderReviewState('Caricamento recensioni Google…', 'Sto leggendo i testi dalla scheda Google Business.');
-  try {
-    const payload = cfg.endpointUrl ? await fetchReviewsFromEndpoint(cfg.endpointUrl) : await fetchReviewsFromGoogleMaps(cfg);
-    renderGoogleReviews(payload);
-  } catch (error) {
-    renderReviewState('Recensioni non disponibili in questo momento.', 'Il collegamento Google non ha risposto correttamente. Puoi comunque aprire la scheda Google Business.');
-  } finally {
-    googleReviewsLoading = false;
-  }
-}
-
-async function fetchReviewsFromEndpoint(endpointUrl) {
-  const response = await fetchWithTimeout(endpointUrl, { headers: { Accept: 'application/json' } }, 12000);
-  return response.json();
-}
-
-function loadGoogleMapsScript(apiKey) {
-  if (window.google?.maps?.importLibrary) return Promise.resolve();
-  if (googleMapsScriptPromise) return googleMapsScriptPromise;
-  googleMapsScriptPromise = new Promise((resolve, reject) => {
-    const callbackName = '__marioGoogleReviewsReady';
-    window[callbackName] = () => {
-      delete window[callbackName];
-      resolve();
-    };
-    const script = document.createElement('script');
-    script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(apiKey)}&v=weekly&libraries=places&language=it&region=IT&callback=${callbackName}`;
-    script.async = true;
-    script.defer = true;
-    script.onerror = () => reject(new Error('Google Maps non disponibile'));
-    document.head.appendChild(script);
-  });
-  return googleMapsScriptPromise;
-}
-
-async function fetchReviewsFromGoogleMaps(cfg) {
-  await loadGoogleMapsScript(cfg.googleMapsApiKey);
-  if (window.google?.maps?.importLibrary) {
-    try {
-      const { Place } = await google.maps.importLibrary('places');
-      let place = null;
-      const fields = ['displayName', 'formattedAddress', 'rating', 'userRatingCount', 'googleMapsURI', 'reviews'];
-      if (cfg.placeId) {
-        place = new Place({ id: cfg.placeId });
-        await place.fetchFields({ fields });
-      } else if (Place.searchByText) {
-        const result = await Place.searchByText({
-          textQuery: cfg.placeQuery,
-          fields: ['id', ...fields],
-          language: cfg.language || 'it',
-          region: cfg.region || 'IT'
-        });
-        place = result?.places?.[0];
-        if (place?.fetchFields) await place.fetchFields({ fields });
-      }
-      if (place) return normalizeReviewPayload(place);
-    } catch (error) {
-      // Fallback al PlacesService legacy dove disponibile.
-    }
-  }
-  return fetchReviewsFromLegacyPlaces(cfg);
-}
-
-function fetchReviewsFromLegacyPlaces(cfg) {
-  return new Promise((resolve, reject) => {
-    if (!window.google?.maps?.places?.PlacesService) {
-      reject(new Error('PlacesService non disponibile'));
-      return;
-    }
-    const holder = document.createElement('div');
-    holder.style.display = 'none';
-    document.body.appendChild(holder);
-    const service = new google.maps.places.PlacesService(holder);
-    const fields = ['name', 'rating', 'user_ratings_total', 'reviews', 'url'];
-    const resolveDetails = (placeId) => {
-      service.getDetails({ placeId, fields, language: cfg.language || 'it', region: cfg.region || 'IT' }, (place, status) => {
-        holder.remove();
-        if (status === google.maps.places.PlacesServiceStatus.OK && place) resolve(normalizeReviewPayload(place));
-        else reject(new Error(`Google Places status: ${status}`));
-      });
-    };
-    if (cfg.placeId) {
-      resolveDetails(cfg.placeId);
-      return;
-    }
-    service.findPlaceFromQuery({ query: cfg.placeQuery, fields: ['place_id'] }, (results, status) => {
-      if (status === google.maps.places.PlacesServiceStatus.OK && results?.[0]?.place_id) resolveDetails(results[0].place_id);
-      else {
-        holder.remove();
-        reject(new Error(`Google Find Place status: ${status}`));
-      }
-    });
-  });
-}
 
 renderCookieBanner();
 if (readCookieConsent()) ensureCookieManageButton();

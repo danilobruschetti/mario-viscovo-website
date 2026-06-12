@@ -4901,3 +4901,182 @@ body.gallery-lightbox-open{
     justify-content: center;
   }
 }
+
+
+/* Delta mirato: contrasto selezione tecniche + link recensioni unico */
+#tecniche .tech-tabs button.is-active {
+  color: #fffaf1 !important;
+}
+#tecniche .tech-tabs button.is-active span {
+  color: #fff1dc !important;
+  opacity: 1 !important;
+  text-shadow: 0 1px 10px rgba(0,0,0,.18);
+}
+#tecniche .tech-tabs button.is-active:hover span {
+  color: #fff7eb !important;
+}
+.reviews-head a,
+.review-state .review-state-actions a {
+  white-space: nowrap;
+}
+
+
+/* Delta mirato V2: recensioni super minimal + contrasto tecniche */
+.section-reviews-minimal {
+  padding-top: 36px;
+  padding-bottom: 46px;
+}
+.reviews-minimal {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  padding: 24px 28px;
+  border: 1px solid rgba(84, 68, 53, .16);
+  border-radius: 30px;
+  background: rgba(255, 252, 245, .72);
+  box-shadow: 0 18px 54px rgba(45, 38, 30, .07);
+}
+.reviews-minimal .eyebrow {
+  margin: 0 0 6px;
+}
+.reviews-minimal h2 {
+  margin: 0;
+  max-width: 780px;
+  color: var(--ink);
+  font-family: var(--serif);
+  font-size: clamp(2rem, 3.2vw, 3.35rem);
+  line-height: .98;
+  letter-spacing: -.045em;
+}
+.reviews-minimal a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 46px;
+  padding: 0 20px;
+  border: 1px solid rgba(84, 68, 53, .18);
+  border-radius: 999px;
+  background: rgba(255,255,255,.68);
+  color: var(--ink);
+  font-weight: 900;
+  white-space: nowrap;
+  box-shadow: 0 10px 26px rgba(45, 38, 30, .06);
+}
+.reviews-minimal a:hover {
+  transform: translateY(-1px);
+  background: #fffaf1;
+}
+#tecniche .tech-tabs button.is-active {
+  color: #fffaf1 !important;
+}
+#tecniche .tech-tabs button.is-active span {
+  color: #fff1dc !important;
+  opacity: 1 !important;
+  text-shadow: 0 1px 10px rgba(0,0,0,.18);
+}
+#tecniche .tech-tabs button.is-active:hover span {
+  color: #fff7eb !important;
+}
+@media (max-width: 760px) {
+  .section-reviews-minimal {
+    padding-top: 24px;
+    padding-bottom: 38px;
+  }
+  .reviews-minimal {
+    align-items: flex-start;
+    flex-direction: column;
+    padding: 22px;
+    border-radius: 24px;
+  }
+  .reviews-minimal h2 {
+    font-size: clamp(1.95rem, 8vw, 2.85rem);
+  }
+  .reviews-minimal a {
+    width: 100%;
+  }
+}
+
+/* V15 - recensioni non invasive, gallery home più leggera, FAQ più pulita */
+.contact-inline-slim a:last-child span {
+  color: var(--tea-dark);
+  font-size: .84rem;
+  letter-spacing: 0;
+}
+
+.faq-workspace {
+  background: transparent !important;
+  border-color: transparent !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+}
+
+.faq-shell {
+  background:
+    radial-gradient(circle at 12% 0%, rgba(255,255,255,.70), transparent 28%),
+    linear-gradient(145deg, rgba(255,253,248,.74), rgba(246,238,226,.54)) !important;
+}
+
+.faq-item {
+  background: rgba(255,253,247,.82) !important;
+}
+
+.section-gallery-teaser {
+  padding-top: 42px !important;
+  padding-bottom: 42px !important;
+  background: linear-gradient(180deg, rgba(255,253,248,.28), rgba(247,234,220,.34)) !important;
+}
+
+.gallery-teaser-card {
+  padding: clamp(18px, 2.3vw, 26px) !important;
+  border-radius: 30px !important;
+  background: rgba(255,253,248,.54) !important;
+  box-shadow: 0 14px 42px rgba(51,43,33,.055) !important;
+}
+
+.gallery-teaser-card::before {
+  inset: 10px !important;
+  border-radius: 22px !important;
+  opacity: .62;
+}
+
+.gallery-teaser-card::after {
+  opacity: .42;
+}
+
+.gallery-teaser-copy h2 {
+  max-width: 9.6em !important;
+  font-size: clamp(2rem, 2.85vw, 3.2rem) !important;
+}
+
+.gallery-teaser-copy p:not(.eyebrow) {
+  max-width: 28ch !important;
+  font-size: .94rem !important;
+}
+
+.gallery-preview-rail .gallery-card--compact {
+  box-shadow: 0 10px 28px rgba(51,43,33,.075) !important;
+}
+
+.gallery-teaser-link {
+  box-shadow: 0 10px 26px rgba(51,43,33,.045) !important;
+}
+
+@media (max-width: 1040px) {
+  .gallery-teaser-card {
+    gap: 18px !important;
+  }
+}
+
+@media (max-width: 660px) {
+  .section-gallery-teaser {
+    padding-top: 36px !important;
+    padding-bottom: 36px !important;
+  }
+  .gallery-teaser-card {
+    padding: 20px !important;
+  }
+  .gallery-teaser-copy p:not(.eyebrow) {
+    margin-top: 9px !important;
+  }
+}
