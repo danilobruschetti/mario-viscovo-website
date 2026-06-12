@@ -317,6 +317,82 @@ function safeBlogText(value = '') {
   return String(value).replace(/[&<>\"]/g, (char) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;' }[char]));
 }
 
+
+// Voci dal percorso: rendering da JSON locale, con fallback da configurazione JS per test in locale
+const reviewsWidget = $('[data-reviews-widget]');
+const reviewsList = $('[data-reviews-list]');
+
+function normalizeReviewUrl(value = '', fallback = '#') {
+  try {
+    return new URL(value, window.location.href).toString();
+  } catch (error) {
+    return fallback;
+  }
+}
+
+function getConfiguredReviewData() {
+  return window.MARIO_GOOGLE_REVIEWS && Array.isArray(window.MARIO_GOOGLE_REVIEWS.reviews)
+    ? window.MARIO_GOOGLE_REVIEWS
+    : { reviews: [] };
+}
+
+async function loadReviewData() {
+  const configured = getConfiguredReviewData();
+
+  // Se le voci sono già presenti nel file google-reviews-config.js, usa quelle:
+  // evita il fetch del JSON locale quando la pagina viene aperta da file://.
+  if (configured.reviews.length) return configured;
+
+  const source = reviewsWidget?.dataset.reviewsSrc;
+  if (!source || window.location.protocol === 'file:') return configured;
+
+  try {
+    const response = await fetch(source, { cache: 'no-store', headers: { Accept: 'application/json' } });
+    if (!response.ok) throw new Error('Voci non disponibili');
+    const data = await response.json();
+    return data && Array.isArray(data.reviews) ? data : configured;
+  } catch (error) {
+    return configured;
+  }
+}
+
+function renderReviews(data = {}) {
+  if (!reviewsWidget || !reviewsList) return;
+  const businessUrl = normalizeReviewUrl(data.businessUrl || getConfiguredReviewData().businessUrl || '#');
+  const reviews = (data.reviews || [])
+    .filter((review) => review && review.url && review.quote)
+    .slice(0, 3);
+
+  const businessLink = reviewsWidget.querySelector('.reviews-head a');
+  if (businessLink && businessUrl !== '#') businessLink.href = businessUrl;
+
+  if (!reviews.length) {
+    reviewsList.innerHTML = `<article class="review-state">
+      <strong>Nessuna voce disponibile.</strong>
+      <p>Apri la raccolta completa per leggere le esperienze pubblicate.</p>
+      <div class="review-state-actions"><a href="${safeBlogText(businessUrl)}" target="_blank" rel="noopener">Leggi le altre esperienze</a></div>
+    </article>`;
+    return;
+  }
+
+  reviewsList.innerHTML = reviews.map((review, index) => {
+    const url = normalizeReviewUrl(review.url, businessUrl);
+    const label = review.name || `Voce ${index + 1}`;
+    const quote = review.quote;
+    return `<article class="review-card">
+      <p class="review-text">${safeBlogText(quote)}</p>
+      <footer>
+        <span><strong>${safeBlogText(label)}</strong></span>
+        <a href="${safeBlogText(url)}" target="_blank" rel="noopener" aria-label="Apri la fonte della ${safeBlogText(label).toLowerCase()}">Apri fonte</a>
+      </footer>
+    </article>`;
+  }).join('');
+}
+
+if (reviewsWidget) {
+  loadReviewData().then(renderReviews);
+}
+
 function renderBlogPosts(posts, { cached = false } = {}) {
   if (!blogContainer) return;
   const validPosts = posts
