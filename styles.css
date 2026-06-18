@@ -7463,3 +7463,181 @@ body.gallery-lightbox-open{
     padding: 20px !important;
   }
 }
+
+/* Delta safe - allineamento tab Psicologia allo stile della sezione Tecniche */
+#psicologia .psyche-tabs {
+  padding: 14px !important;
+  gap: 6px !important;
+  background: rgba(246,236,223,.5) !important;
+  border-left: 1px solid var(--line) !important;
+}
+
+#psicologia .psyche-tab {
+  display: block !important;
+  border: 0 !important;
+  border-radius: 18px !important;
+  padding: 14px 15px !important;
+  background: transparent !important;
+  color: #4d4338 !important;
+  box-shadow: none !important;
+  transform: none !important;
+  font-family: var(--sans) !important;
+  font-weight: 900 !important;
+  transition: .2s ease !important;
+}
+
+#psicologia .psyche-tab:hover {
+  background: rgba(255,255,255,.58) !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
+#psicologia .psyche-tab strong {
+  display: block !important;
+  margin: 0 0 2px !important;
+  color: var(--tea-dark) !important;
+  font-family: var(--serif) !important;
+  font-size: 1.35rem !important;
+  font-weight: 700 !important;
+  line-height: 1 !important;
+  letter-spacing: 0 !important;
+}
+
+#psicologia .psyche-tab em {
+  display: block !important;
+  margin-top: 0 !important;
+  color: #4d4338 !important;
+  font-family: var(--sans) !important;
+  font-size: .98rem !important;
+  font-style: normal !important;
+  font-weight: 900 !important;
+  line-height: 1.18 !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+}
+
+#psyche-tab-psicologia:checked ~ .psyche-tabs .psyche-tab-psicologia,
+#psyche-tab-counseling:checked ~ .psyche-tabs .psyche-tab-counseling,
+#psyche-tab-gruppi:checked ~ .psyche-tabs .psyche-tab-gruppi {
+  background: #213230 !important;
+  color: #fffaf1 !important;
+  box-shadow: none !important;
+}
+
+#psyche-tab-psicologia:checked ~ .psyche-tabs .psyche-tab-psicologia strong,
+#psyche-tab-counseling:checked ~ .psyche-tabs .psyche-tab-counseling strong,
+#psyche-tab-gruppi:checked ~ .psyche-tabs .psyche-tab-gruppi strong {
+  color: #fff1dc !important;
+  text-shadow: 0 1px 10px rgba(0,0,0,.18) !important;
+}
+
+#psyche-tab-psicologia:checked ~ .psyche-tabs .psyche-tab-psicologia em,
+#psyche-tab-counseling:checked ~ .psyche-tabs .psyche-tab-counseling em,
+#psyche-tab-gruppi:checked ~ .psyche-tabs .psyche-tab-gruppi em {
+  color: #fffaf1 !important;
+}
+
+@media (max-width: 1040px) {
+  #psicologia .psyche-tabs {
+    display: flex !important;
+    overflow-x: auto !important;
+    overflow-y: hidden !important;
+    border-left: 0 !important;
+    border-bottom: 1px solid var(--line) !important;
+    scrollbar-width: none !important;
+  }
+
+  #psicologia .psyche-tabs::-webkit-scrollbar {
+    display: none !important;
+  }
+
+  #psicologia .psyche-tab {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    padding: 12px 13px !important;
+    border-radius: 18px !important;
+  }
+}
+
+@media (max-width: 660px) {
+  #psicologia .psyche-tabs {
+    display: flex !important;
+    grid-template-columns: none !important;
+    padding: 14px !important;
+    gap: 6px !important;
+  }
+
+  #psicologia .psyche-tab {
+    flex: 0 0 auto !important;
+    width: auto !important;
+    min-width: max-content !important;
+    padding: 12px 13px !important;
+  }
+
+  #psicologia .psyche-tab strong {
+    font-size: 1.18rem !important;
+  }
+
+  #psicologia .psyche-tab em {
+    display: block !important;
+    overflow: visible !important;
+    -webkit-line-clamp: unset !important;
+    -webkit-box-orient: initial !important;
+    font-size: .86rem !important;
+    white-space: nowrap !important;
+  }
+}
+
+/* Delta safe - uniforma il titolo della sezione Psicologia alla sezione Tecniche */
+#psicologia .psyche-head {
+  display: grid !important;
+  grid-template-columns: 1fr !important;
+  justify-items: center !important;
+  align-items: center !important;
+  gap: 12px !important;
+  max-width: 860px !important;
+  margin-inline: auto !important;
+  margin-bottom: 28px !important;
+  text-align: center !important;
+}
+
+#psicologia .psyche-head .eyebrow {
+  margin: 0 !important;
+  flex: none !important;
+  align-self: auto !important;
+}
+
+#psicologia .psyche-head h2 {
+  flex: none !important;
+  font-size: clamp(2.25rem, 3.65vw, 4.05rem) !important;
+  line-height: .98 !important;
+  letter-spacing: -.04em !important;
+  max-width: 880px !important;
+  margin: 0 !important;
+}
+
+#psicologia .psyche-head p:not(.eyebrow) {
+  width: auto !important;
+  max-width: 760px !important;
+  margin: 0 auto !important;
+  font-size: 1rem !important;
+  color: var(--muted) !important;
+}
+
+@media (max-width: 760px) {
+  #psicologia .psyche-head {
+    text-align: left !important;
+    justify-items: start !important;
+    margin-bottom: 20px !important;
+  }
+
+  #psicologia .psyche-head h2 {
+    font-size: clamp(2.05rem, 8.8vw, 3rem) !important;
+    line-height: .98 !important;
+  }
+
+  #psicologia .psyche-head p:not(.eyebrow) {
+    margin-inline: 0 !important;
+  }
+}
