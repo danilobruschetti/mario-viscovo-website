@@ -505,7 +505,7 @@ function normalizePosts(posts = []) {
 
 function rss2JsonUrl(feedUrl) {
   const cacheBuster = Math.floor(Date.now() / 600000);
-  return `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&count=3&_=${cacheBuster}`;
+  return `https://api.rss2json.com/v1/api.json?rss_url=${encodeURIComponent(feedUrl)}&_=${cacheBuster}`;
 }
 
 async function fetchViaRss2Json(feedUrl = blogFeed) {
