@@ -405,6 +405,7 @@ function renderBlogPosts(posts, { cached = false } = {}) {
   }
 
   blogContainer.setAttribute('data-blog-loaded', 'true');
+  blogContainer.dataset.blogSource = cached ? 'cache' : 'live';
   blogContainer.innerHTML = validPosts.map((post) => {
     const link = post.link && post.link !== blogHome ? post.link : blogArchive;
     return `<article>
@@ -593,9 +594,11 @@ async function loadBlogFeed() {
 }
 
 async function retryBlogUntilLoaded() {
-  if (!blogContainer || blogContainer.getAttribute('data-blog-loaded') === 'true') return;
+  if (!blogContainer) return;
+  const hasFreshContent = blogContainer.getAttribute('data-blog-loaded') === 'true' && blogContainer.dataset.blogSource !== 'cache';
+  if (hasFreshContent) return;
   window.clearTimeout(blogRetryTimer);
-  renderBlogLoading();
+  if (blogContainer.dataset.blogSource !== 'cache') renderBlogLoading();
   const loaded = await loadBlogFeed();
   if (loaded) return;
   blogAttempt += 1;
